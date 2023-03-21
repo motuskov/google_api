@@ -4,5 +4,5 @@ WORKDIR /google_api
 COPY google_api .
 RUN pip install -r requirements.txt
 RUN python manage.py migrate
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["sh", "-c", "python manage.py runserver 0.0.0.0:8000 & python manage.py runscheduler"]
 EXPOSE 8000

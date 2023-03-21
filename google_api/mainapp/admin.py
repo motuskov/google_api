@@ -11,5 +11,5 @@ class OrderItemAdmin(admin.ModelAdmin):
         'order_number',
         'cost_usd',
         'cost_rub',
-        'delivery_time',
+        'delivery_date',
     ]

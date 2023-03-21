@@ -16,6 +16,6 @@ class OrderItem(models.Model):
         decimal_places=2,
         help_text='The cost of the item in Russian rubles.'
     )
-    delivery_time = models.DateField(
+    delivery_date = models.DateField(
         help_text='The date by which the item must be delivered.'
     )
