@@ -13,7 +13,9 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from mainapp.models import OrderItem
+from mainapp.utils import get_exchange_rate
 
+EXCHANGE_RATE_URL = 'https://www.cbr.ru/scripts/XML_daily.asp'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
 SPREADSHEET_ID = '1I8CvbwvJpcTeibzXnj9RS9MxQqy2clLTooE46E2rmbY'
 SHEET_NAME = 'Data'
@@ -23,6 +25,15 @@ FIRST_DATA_ROW = 2
 def update_db():
     '''Updates database records based on Google Sheets file.
     '''
+    # Getting USD exchange rate
+    try:
+        usd_exchange_rate = get_exchange_rate(EXCHANGE_RATE_URL, 'USD')
+    except Exception as error:
+        print(error)
+        return
+    if not usd_exchange_rate:
+        print('USD exchange rate cannot be retrieved.')
+        return
     # Checking credentials
     if os.path.exists('token.json'):
         creds = Credentials.from_authorized_user_file('token.json', SCOPES)
@@ -54,7 +65,7 @@ def update_db():
                     seen_ids.add(id)
                     order_number = int(row[1])
                     cost_usd = float(row[2])
-                    cost_rub = cost_usd * 80
+                    cost_rub = cost_usd * usd_exchange_rate
                     delivery_date = datetime.strptime(row[3], '%d.%m.%Y')
                     # Updating database
                     OrderItem.objects.update_or_create(pk=id, defaults={
