@@ -36,6 +36,7 @@ def update_db():
         sheet = service.spreadsheets()
         # Getting data from the sheet and updating database
         next_row = FIRST_DATA_ROW
+        seen_ids = set()
         while True:
             # Getting data
             data_range_name = f'{SHEET_NAME}!A{next_row}:D{next_row + PROCESS_ROW_COUNT}'
@@ -49,13 +50,14 @@ def update_db():
             for row in rows:
                 try:
                     # Reading cells
-                    pk = int(row[0])
+                    id = int(row[0])
+                    seen_ids.add(id)
                     order_number = int(row[1])
                     cost_usd = float(row[2])
                     cost_rub = cost_usd * 80
                     delivery_date = datetime.strptime(row[3], '%d.%m.%Y')
                     # Updating database
-                    OrderItem.objects.update_or_create(pk=pk, defaults={
+                    OrderItem.objects.update_or_create(pk=id, defaults={
                         'order_number': order_number,
                         'cost_usd': cost_usd,
                         'cost_rub': cost_rub,
@@ -64,7 +66,10 @@ def update_db():
                 except Exception as error:
                     print(error)
                     continue
+            # Going to the next portion of data
             next_row += PROCESS_ROW_COUNT
+        # Deleting records that are not in the Google Sheets document
+        OrderItem.objects.exclude(pk__in=seen_ids).delete()
     except HttpError as error:
         print(error)
 
