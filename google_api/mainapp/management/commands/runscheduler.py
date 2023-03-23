@@ -11,12 +11,20 @@ from googleapiclient.errors import HttpError
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
+from django.core.cache import cache
 
-from mainapp.models import OrderItem
+from mainapp.models import (
+    OrderItem,
+    UpdateExecution,
+)
 from mainapp.utils import get_exchange_rate
 
+SCOPES = [
+    'https://www.googleapis.com/auth/spreadsheets.readonly',
+    'https://www.googleapis.com/auth/drive.metadata.readonly'
+]
 EXCHANGE_RATE_URL = 'https://www.cbr.ru/scripts/XML_daily.asp'
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
+EXCHANGE_RATE_EXPIRATION_TIME = 600
 SPREADSHEET_ID = '1I8CvbwvJpcTeibzXnj9RS9MxQqy2clLTooE46E2rmbY'
 SHEET_NAME = 'Data'
 PROCESS_ROW_COUNT = 500
@@ -25,20 +33,63 @@ FIRST_DATA_ROW = 2
 def update_db():
     '''Updates database records based on Google Sheets file.
     '''
+    # Creating the update process record
+    update_execution = UpdateExecution.objects.create()
     # Getting USD exchange rate
-    try:
-        usd_exchange_rate = get_exchange_rate(EXCHANGE_RATE_URL, 'USD')
-    except Exception as error:
-        print(error)
-        return
+    usd_exchange_rate = cache.get('usd_exchange_rate')
     if not usd_exchange_rate:
-        print('USD exchange rate cannot be retrieved.')
-        return
+        try:
+            usd_exchange_rate = get_exchange_rate(EXCHANGE_RATE_URL, 'USD')
+            if not usd_exchange_rate:
+                update_execution.add_error('USD exchange rate cannot be retrieved')
+                return
+            cache.set('usd_exchange_rate', usd_exchange_rate, EXCHANGE_RATE_EXPIRATION_TIME)
+        except Exception as error:
+            update_execution.add_error(
+                'An error occurred during retrieving USD exchange rate',
+                error_details=error
+            )
+            return
+    update_execution.usd_exchange_rate = usd_exchange_rate
+    update_execution.save()
     # Checking credentials
     if os.path.exists('token.json'):
         creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    else:
+    if not creds:
+        update_execution.add_error(
+            'Credentials file "token.json" was not found in the project directory or it is not '
+            'valid.'
+        )
         return
+    # Checking if full update is needed
+    try:
+        # Getting the document timestamp
+        service = build('drive', 'v3', credentials=creds)
+        file = service.files().get(fileId=SPREADSHEET_ID, fields='modifiedTime').execute()
+        document_timestamp = file['modifiedTime']
+        # Saving the document timestamp to database
+        update_execution.document_timestamp = document_timestamp
+        update_execution.save()
+        # Getting the previous document timestamp and the previous usd exchange rate
+        try:
+            last_successful_update_execution = UpdateExecution.objects.filter(
+                status='success').exclude(pk=update_execution.pk).latest('created')
+            previous_document_timestamp = last_successful_update_execution.document_timestamp
+            previous_usd_exchange_rate = last_successful_update_execution.usd_exchange_rate
+        except UpdateExecution.DoesNotExist:
+            previous_document_timestamp = None
+            previous_usd_exchange_rate = None
+        # Updating only USD cost if the document has not been changed and USD exchange rate has
+        # changed
+        if document_timestamp == previous_document_timestamp:
+            if usd_exchange_rate != previous_usd_exchange_rate:
+                OrderItem.refresh_cost_rub(usd_exchange_rate)
+            return
+    except HttpError as error:
+        update_execution.add_error(
+            'A critical error occurred during retrieving the document modification time',
+            error_details=error
+        )
     # Updating data in database
     try:
         # Getting the Google Sheets API service
@@ -75,20 +126,28 @@ def update_db():
                         'delivery_date': delivery_date
                     })
                 except Exception as error:
-                    print(error)
+                    update_execution.add_error(
+                        f'An error occurred during processing the record with id {row[0]}',
+                        fatal=False,
+                        error_details=error
+                    )
                     continue
             # Going to the next portion of data
             next_row += PROCESS_ROW_COUNT
         # Deleting records that are not in the Google Sheets document
         OrderItem.objects.exclude(pk__in=seen_ids).delete()
     except HttpError as error:
-        print(error)
+        update_execution.add_error(
+            'A critical error occurred during the processing of the document',
+            error_details=error
+        )
 
 @util.close_old_connections
-def delete_old_job_executions(max_age=604_800):
-    '''Deletes APScheduler job execution entries older than 'max_age' from the database.
+def delete_old_executions(max_age=604_800):
+    '''Deletes execution entries older than 'max_age' from the database.
     '''
     DjangoJobExecution.objects.delete_old_job_executions(max_age)
+    UpdateExecution.delete_old_executions(max_age)
 
 class Command(BaseCommand):
     '''Represents a handler of "runscheduler" command.
@@ -108,11 +167,11 @@ class Command(BaseCommand):
             replace_existing=True
         )
         scheduler.add_job(
-            delete_old_job_executions,
+            delete_old_executions,
             trigger=CronTrigger(
                 day_of_week='mon', hour='00', minute='00'
             ),
-            id='delete_old_job_executions',
+            id='delete_old_executions',
             max_instances=1,
             replace_existing=True
         )
