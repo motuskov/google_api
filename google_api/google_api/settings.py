@@ -123,3 +123,13 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Google API settings
+
+GOOGLE_API_TOKEN_FILENAME = 'token.json'
+GOOGLE_API_SCOPES = [
+    'https://www.googleapis.com/auth/spreadsheets.readonly',
+    'https://www.googleapis.com/auth/drive.metadata.readonly'
+]
+GOOGLE_API_CHECK_DOCUMENT_MODIFIED_TIME = False

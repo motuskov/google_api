@@ -1,12 +1,8 @@
-import os.path
-from datetime import datetime
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from django_apscheduler.jobstores import DjangoJobStore
 from django_apscheduler.models import DjangoJobExecution
 from django_apscheduler import util
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 from django.conf import settings
@@ -17,12 +13,13 @@ from mainapp.models import (
     OrderItem,
     UpdateExecution,
 )
-from mainapp.utils import get_exchange_rate
+from mainapp.utils import (
+    get_exchange_rate,
+    get_google_credentials,
+    get_google_document_modified_time,
+    read_google_spreadsheet_data,
+)
 
-SCOPES = [
-    'https://www.googleapis.com/auth/spreadsheets.readonly',
-    'https://www.googleapis.com/auth/drive.metadata.readonly'
-]
 EXCHANGE_RATE_URL = 'https://www.cbr.ru/scripts/XML_daily.asp'
 EXCHANGE_RATE_EXPIRATION_TIME = 600
 SPREADSHEET_ID = '1I8CvbwvJpcTeibzXnj9RS9MxQqy2clLTooE46E2rmbY'
@@ -35,6 +32,7 @@ def update_db():
     '''
     # Creating the update process record
     update_execution = UpdateExecution.objects.create()
+
     # Getting USD exchange rate
     usd_exchange_rate = cache.get('usd_exchange_rate')
     if not usd_exchange_rate:
@@ -52,90 +50,97 @@ def update_db():
             return
     update_execution.usd_exchange_rate = usd_exchange_rate
     update_execution.save()
+
     # Checking credentials
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    creds = get_google_credentials(settings.GOOGLE_API_TOKEN_FILENAME, settings.GOOGLE_API_SCOPES)
     if not creds:
         update_execution.add_error(
             'Credentials file "token.json" was not found in the project directory or it is not '
             'valid.'
         )
         return
-    # Checking if full update is needed
+
+    # Getting the previous document timestamp and the previous usd exchange rate
     try:
-        # Getting the document timestamp
-        service = build('drive', 'v3', credentials=creds)
-        file = service.files().get(fileId=SPREADSHEET_ID, fields='modifiedTime').execute()
-        document_timestamp = file['modifiedTime']
-        # Saving the document timestamp to database
-        update_execution.document_timestamp = document_timestamp
-        update_execution.save()
-        # Getting the previous document timestamp and the previous usd exchange rate
+        last_successful_update_execution = UpdateExecution.objects.filter(
+            status='success').exclude(pk=update_execution.pk).latest('created')
+        previous_document_timestamp = last_successful_update_execution.document_timestamp
+        previous_usd_exchange_rate = last_successful_update_execution.usd_exchange_rate
+    except UpdateExecution.DoesNotExist:
+        previous_document_timestamp = None
+        previous_usd_exchange_rate = None
+
+    # Checking if full update is needed
+    if settings.GOOGLE_API_CHECK_DOCUMENT_MODIFIED_TIME:
         try:
-            last_successful_update_execution = UpdateExecution.objects.filter(
-                status='success').exclude(pk=update_execution.pk).latest('created')
-            previous_document_timestamp = last_successful_update_execution.document_timestamp
-            previous_usd_exchange_rate = last_successful_update_execution.usd_exchange_rate
-        except UpdateExecution.DoesNotExist:
-            previous_document_timestamp = None
-            previous_usd_exchange_rate = None
-        # Updating only USD cost if the document has not been changed and USD exchange rate has
-        # changed
-        if document_timestamp == previous_document_timestamp:
-            if usd_exchange_rate != previous_usd_exchange_rate:
-                OrderItem.refresh_cost_rub(usd_exchange_rate)
-            return
-    except HttpError as error:
-        update_execution.add_error(
-            'A critical error occurred during retrieving the document modification time',
-            error_details=error
-        )
+
+            # Getting and saving the document timestamp
+            document_timestamp = get_google_document_modified_time(creds, SPREADSHEET_ID)
+            update_execution.document_timestamp = document_timestamp
+            update_execution.save()
+
+            # Updating only USD cost if the document has not been changed and USD exchange rate has
+            # changed
+            if document_timestamp == previous_document_timestamp:
+                if usd_exchange_rate != previous_usd_exchange_rate:
+                    OrderItem.refresh_cost_rub(usd_exchange_rate)
+                return
+
+        except HttpError as error:
+            update_execution.add_error(
+                'A critical error occurred during retrieving the document modification time',
+                error_details=error
+            )
+
     # Updating data in database
     try:
-        # Getting the Google Sheets API service
-        service = build('sheets', 'v4', credentials=creds)
-        # Calling the Google Sheets API
-        sheet = service.spreadsheets()
-        # Getting data from the sheet and updating database
-        next_row = FIRST_DATA_ROW
-        seen_ids = set()
-        while True:
-            # Getting data
-            data_range_name = f'{SHEET_NAME}!A{next_row}:D{next_row + PROCESS_ROW_COUNT}'
-            result = sheet.values().get(spreadsheetId=SPREADSHEET_ID,
-                                        range=data_range_name).execute()
-            rows = result.get('values', [])
-            # Exiting loop if no more data
-            if not rows:
-                break
-            # Processing every row of the data
-            for row in rows:
-                try:
-                    # Reading cells
-                    id = int(row[0])
-                    seen_ids.add(id)
-                    order_number = int(row[1])
-                    cost_usd = float(row[2])
-                    cost_rub = cost_usd * usd_exchange_rate
-                    delivery_date = datetime.strptime(row[3], '%d.%m.%Y')
-                    # Updating database
-                    OrderItem.objects.update_or_create(pk=id, defaults={
-                        'order_number': order_number,
-                        'cost_usd': cost_usd,
-                        'cost_rub': cost_rub,
-                        'delivery_date': delivery_date
-                    })
-                except Exception as error:
-                    update_execution.add_error(
-                        f'An error occurred during processing the record with id {row[0]}',
-                        fatal=False,
-                        error_details=error
-                    )
-                    continue
-            # Going to the next portion of data
-            next_row += PROCESS_ROW_COUNT
-        # Deleting records that are not in the Google Sheets document
-        OrderItem.objects.exclude(pk__in=seen_ids).delete()
+
+        # Getting data from the Google Sheets document
+        document_data, document_errors = read_google_spreadsheet_data(
+            creds,
+            SPREADSHEET_ID,
+            SHEET_NAME,
+            FIRST_DATA_ROW
+        )
+
+        # Deleting database records that do not exist in the document
+        OrderItem.objects.exclude(pk__in=document_data).delete()
+
+        # Updating existing records
+        existing_order_items = OrderItem.objects.all()
+        order_items_to_update = []
+        for order_item in existing_order_items:
+            document_order_item = document_data[order_item.pk]
+            if (order_item.order_number != document_order_item[0]
+                or order_item.cost_usd != document_order_item[1]
+                or order_item.delivery_date != document_order_item[2]):
+                order_item.order_number = document_order_item[0]
+                order_item.cost_usd = document_order_item[1]
+                order_item.delivery_date = document_order_item[2]
+                order_item.cost_rub = order_item.cost_usd * usd_exchange_rate
+                order_items_to_update.append(order_item)
+            del document_data[order_item.pk]
+        OrderItem.objects.bulk_update(
+            order_items_to_update,
+            ['order_number', 'cost_usd', 'cost_rub', 'delivery_date']
+        )
+
+        # Creating new records
+        order_items_to_create = []
+        for id, fields in document_data.items():
+            order_items_to_create.append(OrderItem(
+                pk=id,
+                order_number=fields[0],
+                cost_usd=fields[1],
+                cost_rub=fields[1] * usd_exchange_rate,
+                delivery_date=fields[2]
+            ))
+        OrderItem.objects.bulk_create(order_items_to_create)
+
+        # Saving errors to database
+        for error in document_errors:
+            update_execution.add_error(error['description'], error['details'])
+
     except HttpError as error:
         update_execution.add_error(
             'A critical error occurred during the processing of the document',
