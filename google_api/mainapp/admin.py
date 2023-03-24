@@ -16,6 +16,7 @@ class OrderItemAdmin(admin.ModelAdmin):
         'cost_usd',
         'cost_rub',
         'delivery_date',
+        'expired',
     ]
 
 class UpdateExecutionErrorInLine(admin.TabularInline):

@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django_apscheduler',
     'mainapp',
+    'notifierapp',
 ]
 
 MIDDLEWARE = [
@@ -137,3 +138,8 @@ GOOGLE_API_SCOPES = [
     'https://www.googleapis.com/auth/drive.metadata.readonly'
 ]
 GOOGLE_API_CHECK_DOCUMENT_MODIFIED_TIME = False
+
+
+# Telegram API settings
+
+TELEGRAM_BOT_TOKEN = '5914526270:AAFgP6yYwbK01guf9NLVgUBWaGOc8zrizYA'

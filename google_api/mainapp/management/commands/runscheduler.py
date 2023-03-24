@@ -1,3 +1,4 @@
+import asyncio
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from django_apscheduler.jobstores import DjangoJobStore
@@ -19,6 +20,8 @@ from mainapp.utils import (
     get_google_document_modified_time,
     read_google_spreadsheet_data,
 )
+from notifierapp.utils import send_expire_notification
+from notifierapp.models import Subscription
 
 EXCHANGE_RATE_URL = 'https://www.cbr.ru/scripts/XML_daily.asp'
 EXCHANGE_RATE_EXPIRATION_TIME = 600
@@ -147,6 +150,25 @@ def update_db():
             error_details=error
         )
 
+def check_expiration():
+    '''Checks expiration status and sends notifications.
+    '''
+    # Getting new expired items
+    new_expired_order_items = OrderItem.update_expiration()
+
+    # Sending notifications
+    if new_expired_order_items:
+        new_expired_order_items_str = [
+            str(new_expired_order_item) for new_expired_order_item in new_expired_order_items
+        ]
+        subscriptions = Subscription.objects.all()
+        for subscription in subscriptions:
+            asyncio.run(send_expire_notification(
+                settings.TELEGRAM_BOT_TOKEN,
+                subscription.chat_id,
+                new_expired_order_items_str
+            ))
+
 @util.close_old_connections
 def delete_old_executions(max_age=604_800):
     '''Deletes execution entries older than 'max_age' from the database.
@@ -177,6 +199,13 @@ class Command(BaseCommand):
                 day_of_week='mon', hour='00', minute='00'
             ),
             id='delete_old_executions',
+            max_instances=1,
+            replace_existing=True
+        )
+        scheduler.add_job(
+            check_expiration,
+            trigger=CronTrigger(minute='*/1'),
+            id='check_expiration',
             max_instances=1,
             replace_existing=True
         )

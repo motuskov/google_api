@@ -20,6 +20,13 @@ class OrderItem(models.Model):
     delivery_date = models.DateField(
         help_text='The date by which the item must be delivered.'
     )
+    expired = models.BooleanField(
+        default=False,
+        help_text='Delivery expiration status of the item'
+    )
+
+    def __str__(self):
+        return f'order {self.order_number} - item {self.pk}'
 
     @classmethod
     def refresh_cost_rub(cls, usd_exchange_rate):
@@ -32,6 +39,37 @@ class OrderItem(models.Model):
         for order_item in order_items:
             order_item.cost_rub = float(order_item.cost_usd) * usd_exchange_rate
         cls.objects.bulk_update(order_items, ['cost_rub'])
+
+    @classmethod
+    def update_expiration(cls):
+        '''Updates expiration status and returns expired items.
+        '''
+        # Getting current date
+        current_date = timezone.now().date()
+
+        # Getting new expired items
+        new_expired_order_items = list(cls.objects.filter(
+            expired=False,
+            delivery_date__lt=current_date
+        ))
+
+        # Changing expiration status of the new expired items
+        for new_expired_order_item in new_expired_order_items:
+            new_expired_order_item.expired = True
+        OrderItem.objects.bulk_update(new_expired_order_items, fields=['expired'])
+
+        # Getting rescheduled items
+        rescheduled_order_items = list(OrderItem.objects.filter(
+            expired=True,
+            delivery_date__gte=current_date
+        ))
+
+        # Changing expiration status of the rescheduled items
+        for rescheduled_order_item in rescheduled_order_items:
+            rescheduled_order_item.expired = False
+        OrderItem.objects.bulk_update(rescheduled_order_items, fields=['expired'])
+
+        return new_expired_order_items
 
 class UpdateExecution(models.Model):
     '''Represents a process of updating OrderItem table.
