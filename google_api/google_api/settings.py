@@ -146,8 +146,23 @@ GOOGLE_API_SCOPES = [
     'https://www.googleapis.com/auth/drive.metadata.readonly'
 ]
 GOOGLE_API_CHECK_DOCUMENT_MODIFIED_TIME = False
+GOOGLE_API_PROCESS_ROW_COUNT = 500
+
+
+# Data source settings
+
+SPREADSHEET_ID = '1I8CvbwvJpcTeibzXnj9RS9MxQqy2clLTooE46E2rmbY'
+SHEET_NAME = 'Data'
+FIRST_DATA_ROW = 2
 
 
 # Telegram API settings
 
 TELEGRAM_BOT_TOKEN = '5914526270:AAFgP6yYwbK01guf9NLVgUBWaGOc8zrizYA'
+
+
+# Getting exchange rate settings
+
+EXCHANGE_RATE_URL = 'https://www.cbr.ru/scripts/XML_daily.asp'
+# Expiration time of retrieved exchange rate value in seconds
+EXCHANGE_RATE_EXPIRATION_TIME = 600

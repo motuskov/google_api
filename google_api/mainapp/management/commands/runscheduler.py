@@ -23,13 +23,6 @@ from mainapp.utils import (
 from notifierapp.utils import send_expire_notification
 from notifierapp.models import Subscription
 
-EXCHANGE_RATE_URL = 'https://www.cbr.ru/scripts/XML_daily.asp'
-EXCHANGE_RATE_EXPIRATION_TIME = 600
-SPREADSHEET_ID = '1I8CvbwvJpcTeibzXnj9RS9MxQqy2clLTooE46E2rmbY'
-SHEET_NAME = 'Data'
-PROCESS_ROW_COUNT = 500
-FIRST_DATA_ROW = 2
-
 def update_db():
     '''Updates database records based on Google Sheets file.
     '''
@@ -40,11 +33,15 @@ def update_db():
     usd_exchange_rate = cache.get('usd_exchange_rate')
     if not usd_exchange_rate:
         try:
-            usd_exchange_rate = get_exchange_rate(EXCHANGE_RATE_URL, 'USD')
+            usd_exchange_rate = get_exchange_rate(settings.EXCHANGE_RATE_URL, 'USD')
             if not usd_exchange_rate:
                 update_execution.add_error('USD exchange rate cannot be retrieved')
                 return
-            cache.set('usd_exchange_rate', usd_exchange_rate, EXCHANGE_RATE_EXPIRATION_TIME)
+            cache.set(
+                'usd_exchange_rate',
+                usd_exchange_rate,
+                settings.EXCHANGE_RATE_EXPIRATION_TIME
+            )
         except Exception as error:
             update_execution.add_error(
                 'An error occurred during retrieving USD exchange rate',
@@ -101,9 +98,10 @@ def update_db():
         # Getting data from the Google Sheets document
         document_data, document_errors = read_google_spreadsheet_data(
             creds,
-            SPREADSHEET_ID,
-            SHEET_NAME,
-            FIRST_DATA_ROW
+            settings.SPREADSHEET_ID,
+            settings.SHEET_NAME,
+            settings.FIRST_DATA_ROW,
+            settings.GOOGLE_API_PROCESS_ROW_COUNT
         )
 
         # Deleting database records that do not exist in the document
