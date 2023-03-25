@@ -75,7 +75,7 @@ def update_db():
         try:
 
             # Getting and saving the document timestamp
-            document_timestamp = get_google_document_modified_time(creds, SPREADSHEET_ID)
+            document_timestamp = get_google_document_modified_time(creds, settings.SPREADSHEET_ID)
             update_execution.document_timestamp = document_timestamp
             update_execution.save()
 
