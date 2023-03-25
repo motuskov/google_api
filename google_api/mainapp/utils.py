@@ -1,3 +1,5 @@
+'''Helper functions for "mainapp" application.
+'''
 import os.path
 from xml.etree import ElementTree
 from urllib3.util.retry import Retry
@@ -10,6 +12,11 @@ from datetime import datetime
 
 def get_exchange_rate(url, currency_name):
     '''Retrieves and returns the exchange rate of specified currency against the ruble.
+
+    Args:
+        currency_name (str): needed currency name
+    Returns:
+        Exchange rate between RUB and specified currency
     '''
     # Retrieving the XML document
     session = requests.Session()
@@ -20,8 +27,10 @@ def get_exchange_rate(url, currency_name):
     response = session.get(url)
     if response.status_code != 200:
         return
+
     # Parsing the XML content
     root = ElementTree.fromstring(response.content)
+
     # Looking for the exchange rate of specified currency
     for currency in root.findall('.//Valute'):
         if currency.find('CharCode').text == currency_name:

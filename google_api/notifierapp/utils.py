@@ -1,3 +1,5 @@
+'''Helper functions for "notifierapp" application.
+'''
 from telegram import Bot
 
 async def send_expire_notification(bot_token, chat_id, items):

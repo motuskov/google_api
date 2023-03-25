@@ -1,3 +1,6 @@
+'''Handles "run_bot" management command. The command starts the process of servicing the
+Telegram bot.
+'''
 from django.core.management.base import BaseCommand
 from django.conf import settings
 
@@ -47,7 +50,7 @@ async def unsubscribe(update, context):
 class Command(BaseCommand):
     '''Represents a handler of "run_bot" command.
     '''
-    help = 'Runs the bot.'
+    help = 'Runs the Telegram bot.'
 
     def handle(self, *args, **options):
         # Building Telegram application

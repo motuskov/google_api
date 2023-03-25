@@ -1,3 +1,6 @@
+'''Handles "run_scheduler" management command. The command starts processes of updating database 
+and sending Telegram notifications.
+'''
 import asyncio
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -23,8 +26,9 @@ from mainapp.utils import (
 from notifierapp.utils import send_expire_notification
 from notifierapp.models import Subscription
 
+
 def update_db():
-    '''Updates database records based on Google Sheets file.
+    '''Updates database records based on the Google Sheets file.
     '''
     # Creating the update process record
     update_execution = UpdateExecution.objects.create()
@@ -51,7 +55,7 @@ def update_db():
     update_execution.usd_exchange_rate = usd_exchange_rate
     update_execution.save()
 
-    # Checking credentials
+    # Checking Google credentials
     creds = get_google_credentials(settings.GOOGLE_API_TOKEN_FILENAME, settings.GOOGLE_API_SCOPES)
     if not creds:
         update_execution.add_error(
@@ -79,7 +83,7 @@ def update_db():
             update_execution.document_timestamp = document_timestamp
             update_execution.save()
 
-            # Updating only USD cost if the document has not been changed and USD exchange rate has
+            # Updating only RUB cost if the document has not been changed and USD exchange rate has
             # changed
             if document_timestamp == previous_document_timestamp:
                 if usd_exchange_rate != previous_usd_exchange_rate:
@@ -92,7 +96,7 @@ def update_db():
                 error_details=error
             )
 
-    # Updating data in database
+    # Updating data in the database
     try:
 
         # Getting data from the Google Sheets document
@@ -139,7 +143,7 @@ def update_db():
             ))
         OrderItem.objects.bulk_create(order_items_to_create)
 
-        # Saving errors to database
+        # Saving errors to the database
         for error in document_errors:
             update_execution.add_error(
                 error['description'],
@@ -188,6 +192,7 @@ class Command(BaseCommand):
         # Creating scheduler
         scheduler = BlockingScheduler(timezone=settings.TIME_ZONE)
         scheduler.add_jobstore(DjangoJobStore(), 'default')
+
         # Adding jobs
         scheduler.add_job(
             update_db,
@@ -212,6 +217,7 @@ class Command(BaseCommand):
             max_instances=1,
             replace_existing=True
         )
+
         # Starting scheduler
         try:
             scheduler.start()

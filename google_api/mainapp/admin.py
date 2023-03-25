@@ -28,7 +28,7 @@ class OrderItemAdmin(admin.ModelAdmin):
     )
 
 class UpdateExecutionErrorInLine(admin.TabularInline):
-    '''Represents an error occurred during a process of updating OrderItem table in the 
+    '''Represents an error occurred during a process of updating "OrderItem" table in the
     administration interface.
     '''
     model = UpdateExecutionError
@@ -39,7 +39,7 @@ class UpdateExecutionErrorInLine(admin.TabularInline):
 
 @admin.register(UpdateExecution)
 class UpdateExecutionAdmin(admin.ModelAdmin):
-    '''Represents a process of updating OrderItem table in the administration interface.
+    '''Represents a process of updating "OrderItem" table in the administration interface.
     '''
     list_display = (
         'created',

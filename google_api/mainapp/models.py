@@ -10,15 +10,15 @@ class OrderItem(models.Model):
     cost_usd = models.DecimalField(
         max_digits=8,
         decimal_places=2,
-        help_text='The cost of the item in US dollars.'
+        help_text='Cost of the item in US dollars.'
     )
     cost_rub = models.DecimalField(
         max_digits=8,
         decimal_places=2,
-        help_text='The cost of the item in Russian rubles.'
+        help_text='Cost of the item in Russian rubles.'
     )
     delivery_date = models.DateField(
-        help_text='The date by which the item must be delivered.'
+        help_text='Date by which the item must be delivered.'
     )
     expired = models.BooleanField(
         default=False,
@@ -32,7 +32,7 @@ class OrderItem(models.Model):
     def refresh_cost_rub(cls, usd_exchange_rate):
         '''Refreshes the cost in USD for all database records.
 
-        Parameters:
+        Args:
             usd_exchange_rate (float): New value of USD exchange rate
         '''
         order_items = cls.objects.all()
@@ -43,6 +43,9 @@ class OrderItem(models.Model):
     @classmethod
     def update_expiration(cls):
         '''Updates expiration status and returns expired items.
+
+        Returns:
+            List of expired items
         '''
         # Getting current date
         current_date = timezone.now().date()
@@ -92,7 +95,7 @@ class UpdateExecution(models.Model):
     document_timestamp = models.CharField(
         max_length=30,
         blank=True,
-        help_text='The information about date and time of document changing.'
+        help_text='Information about date and time of document changing.'
     )
     usd_exchange_rate = models.FloatField(
         null=True,
@@ -103,7 +106,7 @@ class UpdateExecution(models.Model):
     def add_error(self, error_short_description, fatal=True, error_details=''):
         '''Adds the error.
 
-        Parameters:
+        Args:
             fatal (bool): True if the error is fatal for current process
             error_short_description (str): Short description of the error
             error_details (str): Detaild description of the error
@@ -114,6 +117,7 @@ class UpdateExecution(models.Model):
         elif not fatal and self.status == 'success':
             self.status = 'partly_fail'
         self.save()
+
         # Adding the error
         self.errors.create(
             short_description=error_short_description,
@@ -122,9 +126,9 @@ class UpdateExecution(models.Model):
 
     @classmethod
     def delete_old_executions(cls, max_age):
-        '''Deletes all UpdateExecutions older than 'max_age' seconds.
+        '''Deletes all "UpdateExecution" records older than "max_age" seconds.
 
-        Parameters:
+        Args:
             max_age (int): Number of seconds to indicate old records
         '''
         current_time = timezone.now()
@@ -132,7 +136,7 @@ class UpdateExecution(models.Model):
         cls.objects.filter(created__lt=oldest_valid_time).delete()
 
 class UpdateExecutionError(models.Model):
-    '''Represents an error occurred during a process of updating OrderItem table.
+    '''Represents an error occurred during a process of updating "OrderItem" table.
     '''
     update_execution = models.ForeignKey(
         UpdateExecution,
