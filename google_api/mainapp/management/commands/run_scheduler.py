@@ -112,12 +112,13 @@ def update_db():
         order_items_to_update = []
         for order_item in existing_order_items:
             document_order_item = document_data[order_item.pk]
-            if (order_item.order_number != document_order_item[0]
-                or order_item.cost_usd != document_order_item[1]
-                or order_item.delivery_date != document_order_item[2]):
-                order_item.order_number = document_order_item[0]
-                order_item.cost_usd = document_order_item[1]
-                order_item.delivery_date = document_order_item[2]
+            if ((order_item.order_number,
+                 order_item.cost_usd,
+                 order_item.delivery_date) != document_order_item or
+                usd_exchange_rate != previous_usd_exchange_rate):
+                (order_item.order_number,
+                 order_item.cost_usd,
+                 order_item.delivery_date) = document_order_item
                 order_item.cost_rub = order_item.cost_usd * usd_exchange_rate
                 order_items_to_update.append(order_item)
             del document_data[order_item.pk]

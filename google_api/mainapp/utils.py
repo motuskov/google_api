@@ -129,7 +129,7 @@ def read_google_spreadsheet_data(
                 data[id] = (
                     int(row[1]),
                     float(row[2]),
-                    datetime.strptime(row[3], '%d.%m.%Y')
+                    datetime.strptime(row[3], '%d.%m.%Y').date()
                 )
                 
             except ValueError as error:
