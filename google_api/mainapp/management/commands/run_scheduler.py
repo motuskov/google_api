@@ -175,7 +175,7 @@ def delete_old_executions(max_age=604_800):
     UpdateExecution.delete_old_executions(max_age)
 
 class Command(BaseCommand):
-    '''Represents a handler of "runscheduler" command.
+    '''Represents a handler of "run_scheduler" command.
     '''
     help = 'Runs scheduler.'
 
