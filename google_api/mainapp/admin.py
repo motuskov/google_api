@@ -10,44 +10,47 @@ from .models import (
 class OrderItemAdmin(admin.ModelAdmin):
     '''Represents an item of an order in the administration interface.
     '''
-    list_display = [
+    list_display = (
         'pk',
         'order_number',
         'cost_usd',
         'cost_rub',
         'delivery_date',
         'expired',
-    ]
+    )
+    list_filter = (
+        'delivery_date',
+        'expired',
+    )
+    search_fields = (
+        'pk',
+        'order_number',
+    )
 
 class UpdateExecutionErrorInLine(admin.TabularInline):
     '''Represents an error occurred during a process of updating OrderItem table in the 
     administration interface.
     '''
     model = UpdateExecutionError
-    fields = [
+    fields = (
         'short_description',
-    ]
+        'details',
+    )
 
 @admin.register(UpdateExecution)
 class UpdateExecutionAdmin(admin.ModelAdmin):
     '''Represents a process of updating OrderItem table in the administration interface.
     '''
-    list_display = [
+    list_display = (
         'created',
         'status',
         'document_timestamp',
         'usd_exchange_rate',
-    ]
-    inlines = [
-        UpdateExecutionErrorInLine
-    ]
-
-@admin.register(UpdateExecutionError)
-class UpdateExecutionErrorAdmin(admin.ModelAdmin):
-    '''Represents an error occurred during a process of updating OrderItem table in the 
-    administration interface.
-    '''
-    list_display = [
-        'update_execution',
-        'short_description',
-    ]
+    )
+    list_filter = (
+        'created',
+        'status',
+    )
+    inlines = (
+        UpdateExecutionErrorInLine,
+    )
