@@ -112,7 +112,7 @@ class UpdateExecution(models.Model):
         if fatal and self.status != 'fail':
             self.status = 'fail'
         elif not fatal and self.status == 'success':
-            self.status = 'part_fail'
+            self.status = 'partly_fail'
         self.save()
         # Adding the error
         self.errors.create(

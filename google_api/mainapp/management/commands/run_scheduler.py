@@ -141,7 +141,11 @@ def update_db():
 
         # Saving errors to database
         for error in document_errors:
-            update_execution.add_error(error['description'], error['details'])
+            update_execution.add_error(
+                error['description'],
+                fatal=False,
+                error_details=error['details']
+            )
 
     except HttpError as error:
         update_execution.add_error(
