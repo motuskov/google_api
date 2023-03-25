@@ -1,0 +1,26 @@
+.Total {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.Total-header, .Total-value {
+  width: 200px;
+  height: 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid gray;
+}
+
+.Total-header {
+  background-color: black;
+  color: white;
+  font-weight: bold;
+  font-size: 30px;
+}
+
+.Total-value {
+  font-size: 30px;
+  border-top: 0;
+}

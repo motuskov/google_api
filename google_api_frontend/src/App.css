@@ -1,0 +1,33 @@
+.App {
+  display: flex;
+  flex-direction: column;
+  width: 1200px;
+  margin: auto;
+}
+
+.App-header {
+  background-color: #97f1a1;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.App-container {
+  display: flex;
+}
+
+.App-total, .App-items, .App-graph {
+  padding: 10px;
+}
+
+.App-graph {
+  display: flex;
+  flex-grow: 1;
+  justify-content: center;
+}
+
+.App-logo {
+  height: 100%;
+  margin-left: 20px;
+}

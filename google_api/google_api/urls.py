@@ -16,6 +16,9 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
+from mainapp.views import OrderItemList
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/order-items/', OrderItemList.as_view(), name='order-item-list'),
 ]

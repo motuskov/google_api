@@ -5,8 +5,8 @@ services:
       POSTGRES_DB: google_api
       POSTGRES_USER: google_api
       POSTGRES_PASSWORD: yp3NVPay
-  app:
-    build: .
+  backend-app:
+    build: ./google_api
     command: >
       sh -c "python manage.py wait_for_db &&
              python manage.py migrate &&
@@ -17,3 +17,9 @@ services:
       - 8000:8000
     depends_on:
       - db
+  frontend-app:
+    build: ./google_api_frontend
+    ports:
+      - 3000:3000
+    depends_on:
+      - backend-app

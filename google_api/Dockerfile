@@ -1,6 +1,6 @@
 # Create the environment for Django project
-FROM python:alpine
+FROM python
 WORKDIR /google_api
-COPY google_api .
+COPY . .
 RUN pip install -r requirements.txt
 EXPOSE 8000
