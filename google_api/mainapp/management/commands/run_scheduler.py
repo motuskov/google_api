@@ -186,7 +186,7 @@ class Command(BaseCommand):
         # Adding jobs
         scheduler.add_job(
             update_db,
-            trigger=CronTrigger(minute='*/1'),
+            trigger=CronTrigger(second='*/20'),
             id='update_db',
             max_instances=1,
             replace_existing=True
@@ -202,7 +202,7 @@ class Command(BaseCommand):
         )
         scheduler.add_job(
             check_expiration,
-            trigger=CronTrigger(minute='*/1'),
+            trigger=CronTrigger(second='*/25'),
             id='check_expiration',
             max_instances=1,
             replace_existing=True
